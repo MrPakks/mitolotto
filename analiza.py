@@ -139,4 +139,6 @@ if 6 <= len(wybrane_lista) <= 12:
             st.plotly_chart(fig, use_container_width=True)
             st.table(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}))
     else:
-        st.error("⚠️ Błąd: Nie znaleziono pliku
+        st.error("⚠️ Błąd: Nie znaleziono pliku wyniki.csv. Wgraj go do folderu z aplikacją!")
+else:
+    st.info("Zaznacz od 6 do 12 liczb, aby odblokować analizę.")
