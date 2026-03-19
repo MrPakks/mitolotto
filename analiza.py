@@ -4,28 +4,40 @@ import math
 import os
 import plotly.graph_objects as go
 
+# Konfiguracja strony
 st.set_page_config(page_title="Mitoloto", layout="centered")
 
-# --- WYMUSZENIE SIATKI NA MOBILE (CSS) ---
+# --- BRUTALNE WYMUSZENIE UKŁADU SIATKI (CSS) ---
 st.markdown("""
     <style>
-    /* Wymuszamy, aby kontenery kolumn nie przeskakiwały do pionu */
+    /* Blokada pionowania kolumn na telefonach */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 2px !important;
+    }
     [data-testid="column"] {
-        flex: 1 1 14% !important; /* 100% / 7 kolumn = ~14% */
+        flex: 1 1 14% !important;
         min-width: 14% !important;
         max-width: 14% !important;
     }
-    /* Styl przycisków */
+    /* Stylizacja przycisków */
     .stButton > button {
-        width: 100%;
-        height: 40px;
-        padding: 0px;
-        font-size: 14px;
-        margin-bottom: -10px;
+        width: 100% !important;
+        height: 45px !important;
+        padding: 0px !important;
+        font-size: 14px !important;
+        font-weight: bold !important;
+        border: 1px solid #ddd !important;
     }
-    /* Ukrycie odstępów między elementami */
-    [data-testid="stVerticalBlock"] > div {
-        gap: 0.1rem !important;
+    /* Nagłówek */
+    .main-title {
+        text-align: center;
+        color: #FF4B4B;
+        font-size: 40px;
+        font-weight: bold;
+        margin-bottom: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -46,8 +58,8 @@ def load_data(source):
 df = load_data(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else None
 
 if df is not None:
-    st.title("🎰 Kupon Mobile")
-    
+    st.markdown('<p class="main-title">🍀 Mitoloto</p>', unsafe_allow_html=True)
+
     if 'wybrane' not in st.session_state:
         st.session_state.wybrane = set()
 
@@ -58,31 +70,36 @@ if df is not None:
             num = r * 7 + c + 1
             with cols[c]:
                 is_sel = num in st.session_state.wybrane
-                # Używamy emoji lub tekstu do oznaczenia wyboru
-                label = f"📍{num}" if is_sel else str(num)
+                label = f"●{num}" if is_sel else str(num)
                 
-                if st.button(label, key=f"b_{num}"):
+                if st.button(label, key=f"btn_{num}"):
                     if num in st.session_state.wybrane:
                         st.session_state.wybrane.remove(num)
                     elif len(st.session_state.wybrane) < 12:
                         st.session_state.wybrane.add(num)
                     st.rerun()
 
+    # Informacje o wyborze
     wybrane_lista = sorted(list(st.session_state.wybrane))
     
-    col_info1, col_info2 = st.columns([2,1])
-    col_info1.write(f"Wybrane: **{', '.join(map(str, wybrane_lista))}**")
-    if col_info2.button("RESET"):
+    c_info, c_reset = st.columns([3, 1])
+    c_info.write(f"Zaznaczono ({len(wybrane_lista)}/12): **{', '.join(map(str, wybrane_lista))}**")
+    if c_reset.button("RESET"):
         st.session_state.wybrane = set()
         st.rerun()
 
-    # Filtry w sidebarze
+    # Sidebar z opcjami
     with st.sidebar:
+        st.header("Opcje Mitoloto")
         min_r, max_r = int(df['Rok'].min()), int(df['Rok'].max())
-        zakres = st.slider("Lata:", min_r, max_r, (min_r, max_r))
+        zakres = st.slider("Lata analizy:", min_r, max_r, (min_r, max_r))
+        st.write("---")
+        if st.button("Usuń bazę danych"):
+            st.warning("Musisz usunąć plik wyniki.csv z GitHub, aby go skasować.")
 
+    # --- ANALIZA ---
     if 6 <= len(wybrane_lista) <= 12:
-        if st.button("📊 ANALIZUJ", type="primary", use_container_width=True):
+        if st.button("📊 ANALIZUJ CASHFLOW", type="primary", use_container_width=True):
             n = len(wybrane_lista)
             komb = math.comb(n, 6)
             dane_f = df[(df['Rok'] >= zakres[0]) & (df['Rok'] <= zakres[1])].copy()
@@ -106,14 +123,21 @@ if df is not None:
                 bilans += (w_los - (komb * 3))
                 historia.append(bilans)
 
-            st.metric("CASHFLOW", f"{bilans:,} zł")
+            st.metric("SALDO FINALNE", f"{bilans:,} zł")
             
-            fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy', line=dict(color='green')))
+            # Wykres Cashflow
+            fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy', line=dict(color='#FF4B4B')))
             fig.update_layout(height=250, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
             st.plotly_chart(fig, use_container_width=True)
             
-            st.table(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Ilość": [staty[6], staty[5], staty[4], staty[3]]}))
+            # Tabela wyników
+            res_df = pd.DataFrame({
+                "Trafienie": ["6/6", "5/6", "4/6", "3/6"],
+                "Ilość": [staty[6], staty[5], staty[4], staty[3]]
+            })
+            st.table(res_df)
     else:
-        st.info("Zaznacz min. 6 liczb")
+        st.info("Zaznacz od 6 do 12 liczb na kuponie powyżej.")
+
 else:
-    st.error("Brak pliku wyniki.csv")
+    st.error("Błąd: Nie znaleziono pliku wyniki.csv!")
