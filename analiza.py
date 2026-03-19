@@ -1,11 +1,3 @@
-Okej, widzę na screenie, że Streamlit kompletnie ignoruje nasze komendy CSS i zamiast 7 kolumn, wyświetla tylko 3, a resztę wyrzuca "pod spód". To się dzieje, bo Streamlit ma wbudowane mechanizmy, które nadpisują nasze style, żeby aplikacja była "dostępna".
-
-Skoro metoda "siłowa" nie działa, użyjemy ostatecznego rozwiązania, które omija system kolumn Streamlita. Zbudujemy kupon jako jeden blok HTML. Dzięki temu Streamlit zobaczy to jako jeden element, a my w środku narysujemy siatkę, której on nie będzie mógł rozbić.
-
-Zastosujemy bibliotekę streamlit-clickable-images (nie wymaga instalacji, zadziała przez standardowy komponent), ale najprościej będzie użyć pętli generującej czysty HTML.
-Kod analiza.py (Mitoloto - Wersja HTML):
-Python
-
 import streamlit as st
 import pandas as pd
 import math
