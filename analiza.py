@@ -6,32 +6,33 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Mitoloto", layout="centered")
 
-
+# --- WYMUSZENIE SIATKI NA MOBILE (CSS) ---
 st.markdown("""
     <style>
-    /* Stylizacja kontenera przycisków */
+    /* Wymuszamy, aby kontenery kolumn nie przeskakiwały do pionu */
+    [data-testid="column"] {
+        flex: 1 1 14% !important; /* 100% / 7 kolumn = ~14% */
+        min-width: 14% !important;
+        max-width: 14% !important;
+    }
+    /* Styl przycisków */
     .stButton > button {
         width: 100%;
-        border-radius: 5px;
-        height: 45px;
-        padding: 0;
-        font-weight: bold;
+        height: 40px;
+        padding: 0px;
+        font-size: 14px;
+        margin-bottom: -10px;
     }
-    /* Kolor dla zaznaczonych liczb (symulacja) */
-    .selected-btn {
-        background-color: #28a745 !important;
-        color: white !important;
-    }
-    /* Układ siatki dla mobile */
-    div[data-testid="column"] {
-        padding: 1px !important;
-        min-width: 40px !important;
+    /* Ukrycie odstępów między elementami */
+    [data-testid="stVerticalBlock"] > div {
+        gap: 0.1rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 DATABASE_FILE = "wyniki.csv"
 
+@st.cache_data
 def load_data(source):
     try:
         df = pd.read_csv(source, sep=None, engine='python', header=None, 
@@ -45,23 +46,22 @@ def load_data(source):
 df = load_data(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else None
 
 if df is not None:
-    st.title("🎰 Twój Kupon")
+    st.title("🎰 Kupon Mobile")
     
-    # Inicjalizacja stanu wybranych liczb
     if 'wybrane' not in st.session_state:
         st.session_state.wybrane = set()
 
-    # --- RENDEROWANIE KUPONU 7x7 ---
+    # --- KUPON 7x7 ---
     for r in range(7):
         cols = st.columns(7)
         for c in range(7):
             num = r * 7 + c + 1
             with cols[c]:
-                # Sprawdzamy czy liczba jest wybrana, żeby zmienić styl (uproszczone)
-                is_selected = num in st.session_state.wybrane
-                label = f"X {num}" if is_selected else str(num)
+                is_sel = num in st.session_state.wybrane
+                # Używamy emoji lub tekstu do oznaczenia wyboru
+                label = f"📍{num}" if is_sel else str(num)
                 
-                if st.button(label, key=f"btn_{num}", use_container_width=True):
+                if st.button(label, key=f"b_{num}"):
                     if num in st.session_state.wybrane:
                         st.session_state.wybrane.remove(num)
                     elif len(st.session_state.wybrane) < 12:
@@ -69,17 +69,17 @@ if df is not None:
                     st.rerun()
 
     wybrane_lista = sorted(list(st.session_state.wybrane))
-    st.write(f"Wybrano ({len(wybrane_lista)}/12): **{', '.join(map(str, wybrane_lista))}**")
-
-    if st.button("WYCZYŚĆ KUPON"):
+    
+    col_info1, col_info2 = st.columns([2,1])
+    col_info1.write(f"Wybrane: **{', '.join(map(str, wybrane_lista))}**")
+    if col_info2.button("RESET"):
         st.session_state.wybrane = set()
         st.rerun()
 
+    # Filtry w sidebarze
     with st.sidebar:
-        st.header("Opcje")
         min_r, max_r = int(df['Rok'].min()), int(df['Rok'].max())
         zakres = st.slider("Lata:", min_r, max_r, (min_r, max_r))
-        if st.file_uploader("Nowa baza", type=['csv']): st.rerun()
 
     if 6 <= len(wybrane_lista) <= 12:
         if st.button("📊 ANALIZUJ", type="primary", use_container_width=True):
@@ -91,8 +91,9 @@ if df is not None:
             bilans = 0
             historia = []
             
+            set_wybrane = set(wybrane_lista)
             for _, row in dane_f.iterrows():
-                traf = len(set(wybrane_lista).intersection({row['L1'], row['L2'], row['L3'], row['L4'], row['L5'], row['L6']}))
+                traf = len(set_wybrane.intersection({row['L1'], row['L2'], row['L3'], row['L4'], row['L5'], row['L6']}))
                 w_los = 0
                 if traf >= 3:
                     w_los += (math.comb(traf, 3) * math.comb(n-traf, 3)) * 24
@@ -105,15 +106,14 @@ if df is not None:
                 bilans += (w_los - (komb * 3))
                 historia.append(bilans)
 
-            st.metric("BILANS FINALNY", f"{bilans:,} zł")
+            st.metric("CASHFLOW", f"{bilans:,} zł")
             
-            # Wykres Cashflow (uproszczony pod mobile)
-            fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy'))
-            fig.update_layout(height=250, margin=dict(l=0,r=0,t=0,b=0))
+            fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy', line=dict(color='green')))
+            fig.update_layout(height=250, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
             st.plotly_chart(fig, use_container_width=True)
             
-            st.dataframe(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}), use_container_width=True)
+            st.table(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Ilość": [staty[6], staty[5], staty[4], staty[3]]}))
     else:
-        st.warning("Zaznacz min. 6 liczb na kuponie.")
+        st.info("Zaznacz min. 6 liczb")
 else:
-    st.error("Wgraj wyniki.csv")
+    st.error("Brak pliku wyniki.csv")
