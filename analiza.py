@@ -6,63 +6,58 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Mitoloto", layout="centered")
 
-# --- INITIAL STATE ---
-if 'wybrane' not in st.session_state:
-    st.session_state.wybrane = set()
-
-# --- DYNAMICZNY CSS ---
-# Generujemy style CSS w zależności od tego, co jest wybrane
-selected_style = ""
-for num in st.session_state.wybrane:
-    # Celujemy bezpośrednio w ID przycisku nadane przez Streamlit
-    selected_style += f"""
-        div.stButton > button[key="n_{num}"] {{
-            background-color: #008000 !important;
-            color: white !important;
-            border: 2px solid #00ff00 !important;
-        }}
-    """
-
-st.markdown(f"""
+# --- ZAAWANSOWANY CSS DLA KOLORÓW ---
+st.markdown("""
 <style>
     /* Wymuszenie rzędu 7 kolumn */
-    div.stHorizontalBlock {{
+    div.stHorizontalBlock {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 2px !important;
-    }}
-    div.stHorizontalBlock > div {{
+    }
+    div.stHorizontalBlock > div {
         width: 14% !important;
         min-width: 0px !important;
         flex-basis: 14% !important;
-    }}
+    }
     
-    /* Podstawowy styl wszystkich przycisków */
-    div.stButton > button {{
+    /* Podstawowy styl przycisku */
+    button {
         width: 100% !important;
         height: 42px !important;
         padding: 0px !important;
-        font-size: 14px !important;
-        background-color: #1e1e1e !important;
-        color: #888 !important;
-        border: 1px solid #333 !important;
-    }}
+        font-size: 13px !important;
+        background-color: #262730 !important; /* Ciemne tło pasujące do trybu dark */
+        color: white !important;
+        border: 1px solid #444 !important;
+        transition: 0.3s;
+    }
 
-    /* Aplikujemy style dla zaznaczonych liczb */
-    {selected_style}
+    /* MAGICZNY TRIK: Styl dla przycisku zawierającego kropkę (zaznaczonego) */
+    /* Używamy selektora, który szuka tekstu wewnątrz guzika */
+    div[data-testid="stHorizontalBlock"] button p:contains("●") {
+        color: #00ff00 !important; /* Jasnozielony tekst */
+    }
+    
+    /* Alternatywne podejście dla nowszych wersji - celujemy w cały przycisk */
+    /* Jeśli przycisk ma kropkę, zmieniamy mu tło na ciemnozielone */
+    button:has(p:contains("●")) {
+        background-color: #004d00 !important; 
+        border: 1px solid #00ff00 !important;
+    }
 
-    .main-title {{
+    .main-title {
         text-align: center;
         color: #FF4B4B;
         font-size: 32px;
         font-weight: 900;
         margin-top: -30px;
-    }}
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- RESZTA LOGIKI ---
+# --- ŁADOWANIE DANYCH ---
 DATABASE_FILE = "wyniki.csv"
 
 @st.cache_data
@@ -71,21 +66,27 @@ def load_data(source):
         df = pd.read_csv(source, sep=None, engine='python', header=None, 
                          names=['Nr', 'Data', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'])
         df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
-        return df.dropna(subset=['Data']).sort_values('Data')
+        df = df.dropna(subset=['Data']).sort_values('Data')
+        return df
     except: return None
 
 df = load_data(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else None
 
+# --- STATE ---
+if 'wybrane' not in st.session_state:
+    st.session_state.wybrane = set()
+
 st.markdown("<div class='main-title'>🍀 Mitoloto</div>", unsafe_allow_html=True)
 
-# KUPON
+# --- RYSOWANIE ---
 for r in range(7):
     cols = st.columns(7)
     for c in range(7):
         num = r * 7 + c + 1
         with cols[c]:
-            # Ważne: klucz (key) musi być stały dla danej liczby
-            if st.button(str(num), key=f"n_{num}"):
+            is_sel = num in st.session_state.wybrane
+            label = f"●{num}" if is_sel else str(num)
+            if st.button(label, key=f"n_{num}"):
                 if num in st.session_state.wybrane:
                     st.session_state.wybrane.remove(num)
                 elif len(st.session_state.wybrane) < 12:
@@ -93,23 +94,29 @@ for r in range(7):
                 st.rerun()
 
 wybrane_lista = sorted(list(st.session_state.wybrane))
-st.write(f"Wybrano: **{', '.join(map(str, wybrane_lista))}**")
+st.write(f"Wybrane ({len(wybrane_lista)}): **{', '.join(map(str, wybrane_lista))}**")
 
-# AKCJE
+# --- PRZYCISKI AKCJI ---
 c1, c2 = st.columns(2)
 with c1:
     if st.button("WYCZYŚĆ", use_container_width=True):
-        st.session_state.wybrane = set(); st.rerun()
+        st.session_state.wybrane = set()
+        st.rerun()
 with c2:
     if st.button("LOSUJ 6", use_container_width=True):
         import random
-        st.session_state.wybrane = set(random.sample(range(1, 50), 6)); st.rerun()
+        st.session_state.wybrane = set(random.sample(range(1, 50), 6))
+        st.rerun()
 
-# ANALIZA
+# --- ANALIZA ---
 if 6 <= len(wybrane_lista) <= 12 and df is not None:
-    if st.button("🚀 ANALIZUJ", type="primary", use_container_width=True):
-        n = len(wybrane_lista); set_wybrane = set(wybrane_lista)
-        komb = math.comb(n, 6); staty = {6:0, 5:0, 4:0, 3:0}; bilans = 0; historia = []
+    if st.button("🚀 ANALIZUJ HISTORIĘ", type="primary", use_container_width=True):
+        n = len(wybrane_lista)
+        komb = math.comb(n, 6)
+        set_wybrane = set(wybrane_lista)
+        staty = {6:0, 5:0, 4:0, 3:0}
+        bilans = 0
+        historia = []
         
         for _, row in df.iterrows():
             traf = len(set_wybrane.intersection({row['L1'], row['L2'], row['L3'], row['L4'], row['L5'], row['L6']}))
@@ -126,6 +133,9 @@ if 6 <= len(wybrane_lista) <= 12 and df is not None:
         
         st.metric("BILANS FINALNY", f"{bilans:,} zł")
         fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy', line=dict(color='#00ff00')))
-        fig.update_layout(height=180, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
+        fig.update_layout(height=180, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
-        st.table(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}))
+        st.table(pd.DataFrame({"Trafienie": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}))
+
+elif df is None:
+    st.error("Wgraj wyniki.csv!")
