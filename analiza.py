@@ -4,54 +4,60 @@ import math
 import os
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Mitoloto", layout="centered")
+st.set_page_config(page_title="Mitoloto", layout="wide")
 
-# --- CSS WYMUSZAJĄCY SIATKĘ 7x7 NAWET NA TELEFONIE ---
+# --- ULTRA COMPACT CSS ---
 st.markdown("""
     <style>
-    /* Kontener dla rzędu przycisków */
-    .button-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 4px;
-        margin-bottom: 5px;
+    /* Usunięcie marginesów bocznych aplikacji */
+    .block-container {
+        padding: 0.5rem !important;
     }
     
-    /* Naprawa standardowych kolumn Streamlit, żeby nie spadały w pion */
+    /* Wymuszenie mikro-siatki */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 2px !important;
-    }
-    [data-testid="column"] {
-        flex: 1 1 0% !important;
-        min-width: 0px !important;
+        gap: 1px !important; /* Minimalny odstęp */
+        justify-content: center !important;
     }
 
-    /* Styl guzików */
-    .stButton > button {
-        width: 100% !important;
-        aspect-ratio: 1 / 1 !important; /* Robi z nich kwadraty */
+    [data-testid="column"] {
+        flex: 0 0 13% !important; /* Sztywne 13% szerokości */
+        min-width: 0px !important;
         padding: 0px !important;
-        font-size: 12px !important;
-        border-radius: 4px !important;
-        border: 1px solid #ddd !important;
+    }
+
+    /* Przyciski: małe kwadraciki 30x30 */
+    .stButton > button {
+        width: 32px !important; 
+        height: 32px !important;
+        min-width: 32px !important;
+        padding: 0px !important;
+        font-size: 11px !important;
+        font-weight: bold !important;
+        border-radius: 2px !important;
+        border: 1px solid #ccc !important;
+        margin: 0 auto !important;
+        display: block !important;
     }
     
-    /* Kolor dla zaznaczonych (jeśli zawiera kropkę) */
-    .stButton > button:contains("●") {
-        background-color: #FF4B4B !important;
-        color: white !important;
+    /* Zaznaczony przycisk - wyraźny kolor */
+    .stButton > button:active, .stButton > button:focus {
+        border-color: #FF4B4B !important;
     }
 
     .main-title {
         text-align: center;
         color: #FF4B4B;
-        font-size: 32px;
+        font-size: 24px;
         font-weight: 900;
-        margin-top: -40px;
+        margin-bottom: 5px;
     }
+    
+    /* Ukrycie labeli i zbędnego miejsca */
+    iframe { height: 0px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,15 +82,15 @@ if df is not None:
     if 'wybrane' not in st.session_state:
         st.session_state.wybrane = set()
 
-    # --- KUPON 7x7 ---
-    # Używamy 7 kontenerów st.columns z wyłączonym zawijaniem
+    # --- GENEROWANIE SIATKI ---
     for r in range(7):
         cols = st.columns(7)
         for c in range(7):
             num = r * 7 + c + 1
             with cols[c]:
                 is_sel = num in st.session_state.wybrane
-                label = f"●{num}" if is_sel else str(num)
+                # Krótki label, żeby nie rozpychał przycisku
+                label = f"X{num}" if is_sel else str(num)
                 if st.button(label, key=f"b_{num}"):
                     if num in st.session_state.wybrane:
                         st.session_state.wybrane.remove(num)
@@ -93,36 +99,25 @@ if df is not None:
                     st.rerun()
 
     wybrane_lista = sorted(list(st.session_state.wybrane))
-    st.write(f"Wybrane: **{', '.join(map(str, wybrane_lista))}** ({len(wybrane_lista)}/12)")
     
-    col_l, col_r = st.columns(2)
-    with col_l:
-        if st.button("WYCZYŚĆ", use_container_width=True):
-            st.session_state.wybrane = set()
-            st.rerun()
-    with col_r:
-        if st.button("LOSUJ 6", use_container_width=True):
+    st.write(f"Suma: **{len(wybrane_lista)}/12**")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("RESET", use_container_width=True):
+            st.session_state.wybrane = set(); st.rerun()
+    with c2:
+        if st.button("LOSUJ", use_container_width=True):
             import random
-            st.session_state.wybrane = set(random.sample(range(1, 50), 6))
-            st.rerun()
-
-    with st.sidebar:
-        st.header("Ustawienia")
-        min_r, max_r = int(df['Rok'].min()), int(df['Rok'].max())
-        zakres = st.slider("Lata:", min_r, max_r, (min_r, max_r))
+            st.session_state.wybrane = set(random.sample(range(1, 50), 6)); st.rerun()
 
     if 6 <= len(wybrane_lista) <= 12:
-        if st.button("📊 ANALIZUJ", type="primary", use_container_width=True):
-            n = len(wybrane_lista)
+        if st.button("🚀 ANALIZUJ", type="primary", use_container_width=True):
+            n = len(wybrane_lista); set_wybrane = set(wybrane_lista)
             komb = math.comb(n, 6)
-            dane_f = df[(df['Rok'] >= zakres[0]) & (df['Rok'] <= zakres[1])]
+            staty = {6:0, 5:0, 4:0, 3:0}; bilans = 0; historia = []
             
-            staty = {6:0, 5:0, 4:0, 3:0}
-            bilans = 0
-            historia = []
-            set_wybrane = set(wybrane_lista)
-
-            for _, row in dane_f.iterrows():
+            for _, row in df.iterrows():
                 traf = len(set_wybrane.intersection({row['L1'], row['L2'], row['L3'], row['L4'], row['L5'], row['L6']}))
                 w_los = 0
                 if traf >= 3:
@@ -135,10 +130,10 @@ if df is not None:
                 bilans += (w_los - (komb * 3))
                 historia.append(bilans)
 
-            st.metric("SALDO FINALNE", f"{bilans:,} zł")
+            st.metric("SALDO", f"{bilans:,} zł")
             fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy', line=dict(color='#FF4B4B')))
-            fig.update_layout(height=200, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
+            fig.update_layout(height=150, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
             st.plotly_chart(fig, use_container_width=True)
             st.table(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}))
 else:
-    st.error("Błąd: Brak pliku wyniki.csv")
+    st.error("Baza danych nieobecna.")
