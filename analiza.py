@@ -4,25 +4,28 @@ import math
 import os
 import plotly.graph_objects as go
 
-# Konfiguracja strony - wymuszamy szeroki układ
-st.set_page_config(page_title="Mitoloto", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Mitoloto", layout="centered")
 
-# Stylowanie CSS dla lepszego wyglądu przycisków na telefonie
+
 st.markdown("""
     <style>
-    [data-testid="stCheckbox"] {
-        background-color: #f0f2f6;
-        padding: 5px;
+    /* Stylizacja kontenera przycisków */
+    .stButton > button {
+        width: 100%;
         border-radius: 5px;
-        border: 1px solid #ddd;
-        margin-bottom: 2px;
-        text-align: center;
+        height: 45px;
+        padding: 0;
+        font-weight: bold;
     }
-    .stMetric {
-        background-color: #ffffff;
-        padding: 10px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    /* Kolor dla zaznaczonych liczb (symulacja) */
+    .selected-btn {
+        background-color: #28a745 !important;
+        color: white !important;
+    }
+    /* Układ siatki dla mobile */
+    div[data-testid="column"] {
+        padding: 1px !important;
+        min-width: 40px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -31,99 +34,86 @@ DATABASE_FILE = "wyniki.csv"
 
 def load_data(source):
     try:
-        sep = ';'
         df = pd.read_csv(source, sep=None, engine='python', header=None, 
                          names=['Nr', 'Data', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'])
         df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
         df = df.dropna(subset=['Data']).sort_values('Data')
         df['Rok'] = df['Data'].dt.year
         return df
-    except:
-        return None
+    except: return None
 
 df = load_data(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else None
 
 if df is not None:
-    st.title("📱 Mobilny ANALIzator")
+    st.title("🎰 Twój Kupon")
     
-    # Sekcja Wyboru - Siatka 7-kolumnowa
-    st.write("### Skreśl liczby:")
-    
-    # Używamy kontenera, aby przyciski były blisko siebie
-    wybrane = []
-    rows = [st.columns(7) for _ in range(7)]
-    for i in range(1, 50):
-        row_idx = (i - 1) // 7
-        col_idx = (i - 1) % 7
-        with rows[row_idx][col_idx]:
-            if st.checkbox(f"{i}", key=f"m_{i}", label_visibility="visible"):
-                wybrane.append(i)
+    # Inicjalizacja stanu wybranych liczb
+    if 'wybrane' not in st.session_state:
+        st.session_state.wybrane = set()
 
-    ile = len(wybrane)
-    st.info(f"Zaznaczono: **{ile}/12**")
+    # --- RENDEROWANIE KUPONU 7x7 ---
+    for r in range(7):
+        cols = st.columns(7)
+        for c in range(7):
+            num = r * 7 + c + 1
+            with cols[c]:
+                # Sprawdzamy czy liczba jest wybrana, żeby zmienić styl (uproszczone)
+                is_selected = num in st.session_state.wybrane
+                label = f"X {num}" if is_selected else str(num)
+                
+                if st.button(label, key=f"btn_{num}", use_container_width=True):
+                    if num in st.session_state.wybrane:
+                        st.session_state.wybrane.remove(num)
+                    elif len(st.session_state.wybrane) < 12:
+                        st.session_state.wybrane.add(num)
+                    st.rerun()
 
-    # Filtry lądują w sidebarze, żeby nie zajmować miejsca na ekranie głównym
+    wybrane_lista = sorted(list(st.session_state.wybrane))
+    st.write(f"Wybrano ({len(wybrane_lista)}/12): **{', '.join(map(str, wybrane_lista))}**")
+
+    if st.button("WYCZYŚĆ KUPON"):
+        st.session_state.wybrane = set()
+        st.rerun()
+
     with st.sidebar:
-        st.header("Ustawienia")
+        st.header("Opcje")
         min_r, max_r = int(df['Rok'].min()), int(df['Rok'].max())
         zakres = st.slider("Lata:", min_r, max_r, (min_r, max_r))
-        st.write("---")
-        st.write("Wgraj nową bazę:")
-        manual_file = st.file_uploader("", type=['csv'])
-        if manual_file:
-            df = load_data(manual_file)
+        if st.file_uploader("Nowa baza", type=['csv']): st.rerun()
 
-    if 6 <= ile <= 12:
-        if st.button("🚀 OBLICZ WYNIKI", use_container_width=True, type="primary"):
-            n = ile
-            kombinacje = math.comb(n, 6)
-            dane_filtr = df[(df['Rok'] >= zakres[0]) & (df['Rok'] <= zakres[1])].copy()
+    if 6 <= len(wybrane_lista) <= 12:
+        if st.button("📊 ANALIZUJ", type="primary", use_container_width=True):
+            n = len(wybrane_lista)
+            komb = math.comb(n, 6)
+            dane_f = df[(df['Rok'] >= zakres[0]) & (df['Rok'] <= zakres[1])].copy()
             
-            set_wybrane = set(wybrane)
-            staty = {6: 0, 5: 0, 4: 0, 3: 0}
-            biezacy_bilans = 0
-            historia_bilansu = []
-            daty_wykresu = []
-
-            for _, row in dane_filtr.iterrows():
-                wylosowane = {row['L1'], row['L2'], row['L3'], row['L4'], row['L5'], row['L6']}
-                k = len(set_wybrane.intersection(wylosowane))
+            staty = {6:0, 5:0, 4:0, 3:0}
+            bilans = 0
+            historia = []
+            
+            for _, row in dane_f.iterrows():
+                traf = len(set(wybrane_lista).intersection({row['L1'], row['L2'], row['L3'], row['L4'], row['L5'], row['L6']}))
+                w_los = 0
+                if traf >= 3:
+                    w_los += (math.comb(traf, 3) * math.comb(n-traf, 3)) * 24
+                    w_los += (math.comb(traf, 4) * math.comb(n-traf, 2)) * 170
+                    w_los += (math.comb(traf, 5) * math.comb(n-traf, 1)) * 5000
+                    w_los += (math.comb(traf, 6) * math.comb(n-traf, 0)) * 2000000
+                    for d in [3,4,5,6]:
+                        if traf >= d: staty[d] += math.comb(traf, d) * math.comb(n-traf, 6-d)
                 
-                wygrana_l = 0
-                if k >= 3:
-                    wygrana_l += (math.comb(k, 3) * math.comb(n-k, 3)) * 24
-                    wygrana_l += (math.comb(k, 4) * math.comb(n-k, 2)) * 170
-                    wygrana_l += (math.comb(k, 5) * math.comb(n-k, 1)) * 5000
-                    wygrana_l += (math.comb(k, 6) * math.comb(n-k, 0)) * 2000000
-                    
-                    for deg in [3, 4, 5, 6]:
-                        if k >= deg:
-                            staty[deg] += math.comb(k, deg) * math.comb(n-k, 6-deg)
+                bilans += (w_los - (komb * 3))
+                historia.append(bilans)
 
-                biezacy_bilans += (wygrana_l - (kombinacje * 3))
-                historia_bilansu.append(biezacy_bilans)
-                daty_wykresu.append(row['Data'])
-
-            # Wyniki w pionie dla mobile
-            st.metric("BILANS FINALNY", f"{biezacy_bilans:,} zł")
+            st.metric("BILANS FINALNY", f"{bilans:,} zł")
             
-            col_a, col_b = st.columns(2)
-            total_wygrana = sum(v * amt for v, amt in zip([staty[3], staty[4], staty[5], staty[6]], [24, 170, 5000, 2000000]))
-            col_a.metric("Wygrane", f"{total_wygrana:,} zł")
-            col_b.metric("Koszt", f"{(len(dane_filtr)*kombinacje*3):,} zł")
-
-            # Wykres Cashflow
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=daty_wykresu, y=historia_bilansu, fill='tozeroy', name='Bilans'))
-            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=300, template="plotly_white")
+            # Wykres Cashflow (uproszczony pod mobile)
+            fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy'))
+            fig.update_layout(height=250, margin=dict(l=0,r=0,t=0,b=0))
             st.plotly_chart(fig, use_container_width=True)
-
-            # Tabela trafień (uproszczona)
-            st.dataframe(pd.DataFrame({
-                "Trafienie": ["6/6", "5/6", "4/6", "3/6"],
-                "Suma": [staty[6], staty[5], staty[4], staty[3]]
-            }), use_container_width=True)
+            
+            st.dataframe(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}), use_container_width=True)
     else:
-        st.warning("Wybierz 6-12 liczb.")
+        st.warning("Zaznacz min. 6 liczb na kuponie.")
 else:
-    st.error("Brak pliku wyniki.csv! Wgraj go na GitHub.")
+    st.error("Wgraj wyniki.csv")
