@@ -89,7 +89,7 @@ df = load_data("wyniki.csv")
 
 st.markdown("<div class='main-title'>🍀 Mitoloto</div>", unsafe_allow_html=True)
 
-# --- GENEROWANIE KUPONU (7x7) ---
+# --- GENEROWANIE SIATKI (7x7) ---
 for r in range(7):
     cols = st.columns(7)
     for c in range(7):
@@ -119,7 +119,7 @@ st.write(f"Wybrane ({len(wybrane_lista)}/12): **{', '.join(map(str, wybrane_list
 # --- PRZYCISKI STERUJĄCE ---
 col_a, col_b = st.columns(2)
 with col_a:
-    if st.button("WYCZYŚĆ KUPON", use_container_width=True):
+    if st.button("WYCZYŚĆ", use_container_width=True):
         st.session_state.wybrane = set()
         st.rerun()
 with col_b:
@@ -179,4 +179,4 @@ if 6 <= len(wybrane_lista) <= 12:
     else:
         st.error("Błąd: Brak bazy wyników (wyniki.csv)!")
 else:
-    st.info("Wybierz od 6 do 12 liczb na kuponie powyżej.")
+    st.info("Wybierz od 6 do 12 liczb powyżej.")
