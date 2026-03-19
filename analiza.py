@@ -4,7 +4,7 @@ import math
 import os
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="ANALIzator 6000 - CASHFLOW", layout="wide")
+st.set_page_config(page_title="ANALIzator 6000", layout="wide")
 
 DATABASE_FILE = "wyniki.csv"
 
@@ -54,7 +54,7 @@ if df is not None:
     zakres = st.sidebar.slider("Lata:", min_r, max_r, (min_r, max_r))
 
     if 6 <= ile <= 12:
-        if st.button("ANALIZUJ CASHFLOW", type="primary"):
+        if st.button("ANALIZUJ", type="primary"):
             n = ile
             kombinacje = math.comb(n, 6)
             dane_filtr = df[(df['Rok'] >= zakres[0]) & (df['Rok'] <= zakres[1])].copy()
