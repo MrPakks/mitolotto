@@ -6,43 +6,48 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Mitoloto", layout="centered")
 
-# --- BRUTALNE ZAGĘSZCZENIE SIATKI (CSS) ---
+# --- KOD CSS WYMUSZAJĄCY SZTYWNY UKŁAD 7 KOLUMN ---
 st.markdown("""
     <style>
-    /* Usuwamy odstępy w rzędach Streamlit */
+    /* Usuwamy marginesy głównego kontenera */
+    .block-container {
+        padding: 1rem 0.5rem !important;
+    }
+    
+    /* KLUCZ: Wymuszenie rzędu bez zawijania (no-wrap) */
     [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
         gap: 2px !important;
-        margin-bottom: -10px !important;
     }
-    /* Wymuszamy ciasne kolumny */
+
+    /* KLUCZ: Każda kolumna musi mieć 1/7 szerokości i ZERO minimalnej szerokości */
     [data-testid="column"] {
-        flex: 1 1 13% !important;
-        min-width: 13% !important;
-        max-width: 13% !important;
-        padding: 0px !important;
+        width: 14% !important;
+        min-width: 0px !important; 
+        flex: 1 1 auto !important;
     }
-    /* Styl przycisków - mniejsze i bliżej siebie */
+
+    /* Przycisk: kwadratowy i ciasny */
     .stButton > button {
         width: 100% !important;
-        height: 38px !important;
+        height: 40px !important;
         padding: 0px !important;
         font-size: 13px !important;
-        margin: 0px !important;
-        border: 1px solid #eee !important;
-        background-color: #f9f9f9;
+        font-weight: bold !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
     }
-    /* Nagłówek Mitoloto */
+    
     .main-title {
         text-align: center;
         color: #FF4B4B;
-        font-size: 32px;
-        font-weight: bold;
-        margin-top: -50px;
-    }
-    /* Ukrycie numeracji i paddingów kontenera */
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 1rem !important;
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 5px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -63,13 +68,14 @@ def load_data(source):
 df = load_data(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else None
 
 if df is not None:
-    st.markdown('<p class="main-title">🍀 Mitoloto</p>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">🍀 Mitoloto</div>', unsafe_allow_html=True)
 
     if 'wybrane' not in st.session_state:
         st.session_state.wybrane = set()
 
-    # --- CIASNY KUPON 7x7 ---
+    # --- KUPON (SIATKA) ---
     for r in range(7):
+        # gap="none" dodatkowo pomaga w nowszych wersjach Streamlit
         cols = st.columns(7)
         for c in range(7):
             num = r * 7 + c + 1
@@ -84,20 +90,19 @@ if df is not None:
                     st.rerun()
 
     wybrane_lista = sorted(list(st.session_state.wybrane))
+    st.write(f"Wybrane ({len(wybrane_lista)}): **{', '.join(map(str, wybrane_lista))}**")
     
-    st.write(f"Wybrane: **{', '.join(map(str, wybrane_lista))}**")
-    
-    if st.button("WYCZYŚĆ KUPON", use_container_width=True):
+    if st.button("RESETUJ KUPON", use_container_width=True):
         st.session_state.wybrane = set()
         st.rerun()
 
     with st.sidebar:
-        st.header("Ustawienia")
+        st.header("Mitoloto Opcje")
         min_r, max_r = int(df['Rok'].min()), int(df['Rok'].max())
         zakres = st.slider("Lata:", min_r, max_r, (min_r, max_r))
 
     if 6 <= len(wybrane_lista) <= 12:
-        if st.button("🚀 ANALIZUJ", type="primary", use_container_width=True):
+        if st.button("📊 ANALIZUJ", type="primary", use_container_width=True):
             n = len(wybrane_lista)
             komb = math.comb(n, 6)
             dane_f = df[(df['Rok'] >= zakres[0]) & (df['Rok'] <= zakres[1])]
@@ -120,10 +125,10 @@ if df is not None:
                 bilans += (w_los - (komb * 3))
                 historia.append(bilans)
 
-            st.metric("SALDO FINALNE", f"{bilans:,} zł")
+            st.metric("CASHFLOW", f"{bilans:,} zł")
             fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy', line=dict(color='#FF4B4B')))
-            fig.update_layout(height=200, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
+            fig.update_layout(height=180, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
             st.plotly_chart(fig, use_container_width=True)
             st.table(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}))
 else:
-    st.error("Wgraj wyniki.csv")
+    st.error("Błąd: Wgraj plik wyniki.csv do repozytorium.")
