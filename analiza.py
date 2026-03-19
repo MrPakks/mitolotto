@@ -83,18 +83,18 @@ for r in range(7):
     cols = st.columns(7)
     for c in range(7):
         num = r * 7 + c + 1
+        if num < 10:
+            label = f"  {num}  "
+        else:
+            label = f" {num} "
+            
         with cols[c]:
-            is_sel = num in st.session_state.wybrane
-            label = f"●{num}" if is_sel else str(num)
-            if st.button(label, key=f"n_{num}"):
+            if st.button(label, key=f"btn_{num}"):
                 if num in st.session_state.wybrane:
                     st.session_state.wybrane.remove(num)
                 elif len(st.session_state.wybrane) < 12:
                     st.session_state.wybrane.add(num)
                 st.rerun()
-
-wybrane_lista = sorted(list(st.session_state.wybrane))
-st.write(f"Wybrane ({len(wybrane_lista)}): **{', '.join(map(str, wybrane_lista))}**")
 
 # --- PRZYCISKI AKCJI ---
 c1, c2 = st.columns(2)
