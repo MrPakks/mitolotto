@@ -4,17 +4,26 @@ import math
 import os
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Mitoloto", layout="centered")
+# Layout "centered" czasem dodaje za duże marginesy, "wide" pozwoli nam je lepiej kontrolować
+st.set_page_config(page_title="Mitoloto", layout="wide")
 
-# --- FIX: WYMUSZENIE KWADRATOWYCH PRZYCISKÓW ---
+# --- KRYTYCZNE POPRAWKI DLA MAŁYCH EKRANÓW ---
 st.markdown("""
     <style>
-    /* Blokada pionowania kolumn */
+    /* Usunięcie marginesów bocznych całej strony, żeby przyciski miały miejsce */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+    
+    /* Wymuszenie rzędu bez zawijania */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 4px !important;
+        gap: 2px !important;
         justify-content: center !important;
     }
 
@@ -23,26 +32,29 @@ st.markdown("""
         min-width: 0px !important;
     }
 
-    /* Stylizacja samych przycisków, żeby nie były wąskie */
+    /* Przyciski: mniejsze (34px), żeby 7 sztuk zmieściło się w linii ok. 320px */
     .stButton > button {
         width: 100% !important;
-        min-width: 40px !important; /* Wymusza szerokość */
-        height: 45px !important;
+        min-width: 34px !important; 
+        height: 38px !important;
         padding: 0px !important;
-        font-size: 14px !important;
+        font-size: 12px !important;
         font-weight: bold !important;
-        border-radius: 4px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
+        border-radius: 3px !important;
+        line-height: 1 !important;
     }
 
     .main-title {
         text-align: center;
         color: #FF4B4B;
-        font-size: 35px;
+        font-size: 26px;
         font-weight: 900;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
+    }
+    
+    /* Naprawa ucinania tekstu pod kuponem */
+    .stMarkdown p {
+        font-size: 14px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -68,14 +80,13 @@ if df is not None:
     if 'wybrane' not in st.session_state:
         st.session_state.wybrane = set()
 
-    # --- KUPON (SIATKA) ---
+    # --- KUPON ---
     for r in range(7):
         cols = st.columns(7)
         for c in range(7):
             num = r * 7 + c + 1
             with cols[c]:
                 is_sel = num in st.session_state.wybrane
-                # Używamy kropki dla zaznaczonych, żeby były wyraźne
                 label = f"●{num}" if is_sel else str(num)
                 if st.button(label, key=f"b_{num}"):
                     if num in st.session_state.wybrane:
@@ -85,16 +96,18 @@ if df is not None:
                     st.rerun()
 
     wybrane_lista = sorted(list(st.session_state.wybrane))
+    
+    # Kompaktowy pasek info
     st.write(f"Wybrane ({len(wybrane_lista)}): **{', '.join(map(str, wybrane_lista))}**")
     
-    if st.button("RESETUJ KUPON", use_container_width=True):
+    if st.button("WYCZYŚĆ", use_container_width=True):
         st.session_state.wybrane = set()
         st.rerun()
 
     with st.sidebar:
         st.header("Mitoloto Opcje")
         min_r, max_r = int(df['Rok'].min()), int(df['Rok'].max())
-        zakres = st.slider("Lata:", min_r, max_r, (min_r, max_r))
+        zakres = st.sidebar.slider("Lata:", min_r, max_r, (min_r, max_r))
 
     if 6 <= len(wybrane_lista) <= 12:
         if st.button("📊 ANALIZUJ", type="primary", use_container_width=True):
@@ -120,10 +133,10 @@ if df is not None:
                 bilans += (w_los - (komb * 3))
                 historia.append(bilans)
 
-            st.metric("SALDO FINALNE", f"{bilans:,} zł")
+            st.metric("SALDO", f"{bilans:,} zł")
             fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy', line=dict(color='#FF4B4B')))
-            fig.update_layout(height=200, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
+            fig.update_layout(height=180, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
             st.plotly_chart(fig, use_container_width=True)
             st.table(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}))
 else:
-    st.error("Błąd: Wgraj plik wyniki.csv do repozytorium.")
+    st.error("Błąd: Brak pliku wyniki.csv")
