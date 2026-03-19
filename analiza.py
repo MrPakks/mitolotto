@@ -6,48 +6,43 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Mitoloto", layout="centered")
 
-# --- KOD CSS WYMUSZAJĄCY SZTYWNY UKŁAD 7 KOLUMN ---
+# --- FIX: WYMUSZENIE KWADRATOWYCH PRZYCISKÓW ---
 st.markdown("""
     <style>
-    /* Usuwamy marginesy głównego kontenera */
-    .block-container {
-        padding: 1rem 0.5rem !important;
-    }
-    
-    /* KLUCZ: Wymuszenie rzędu bez zawijania (no-wrap) */
+    /* Blokada pionowania kolumn */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        gap: 2px !important;
+        gap: 4px !important;
+        justify-content: center !important;
     }
 
-    /* KLUCZ: Każda kolumna musi mieć 1/7 szerokości i ZERO minimalnej szerokości */
     [data-testid="column"] {
-        width: 14% !important;
-        min-width: 0px !important; 
         flex: 1 1 auto !important;
+        min-width: 0px !important;
     }
 
-    /* Przycisk: kwadratowy i ciasny */
+    /* Stylizacja samych przycisków, żeby nie były wąskie */
     .stButton > button {
         width: 100% !important;
-        height: 40px !important;
+        min-width: 40px !important; /* Wymusza szerokość */
+        height: 45px !important;
         padding: 0px !important;
-        font-size: 13px !important;
+        font-size: 14px !important;
         font-weight: bold !important;
-        border: 1px solid #ccc !important;
         border-radius: 4px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
-    
+
     .main-title {
         text-align: center;
         color: #FF4B4B;
-        font-size: 28px;
-        font-weight: 800;
-        margin-bottom: 5px;
+        font-size: 35px;
+        font-weight: 900;
+        margin-bottom: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -75,12 +70,12 @@ if df is not None:
 
     # --- KUPON (SIATKA) ---
     for r in range(7):
-        # gap="none" dodatkowo pomaga w nowszych wersjach Streamlit
         cols = st.columns(7)
         for c in range(7):
             num = r * 7 + c + 1
             with cols[c]:
                 is_sel = num in st.session_state.wybrane
+                # Używamy kropki dla zaznaczonych, żeby były wyraźne
                 label = f"●{num}" if is_sel else str(num)
                 if st.button(label, key=f"b_{num}"):
                     if num in st.session_state.wybrane:
@@ -125,9 +120,9 @@ if df is not None:
                 bilans += (w_los - (komb * 3))
                 historia.append(bilans)
 
-            st.metric("CASHFLOW", f"{bilans:,} zł")
+            st.metric("SALDO FINALNE", f"{bilans:,} zł")
             fig = go.Figure(go.Scatter(y=historia, mode='lines', fill='tozeroy', line=dict(color='#FF4B4B')))
-            fig.update_layout(height=180, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
+            fig.update_layout(height=200, margin=dict(l=0,r=0,t=0,b=0), xaxis_visible=False)
             st.plotly_chart(fig, use_container_width=True)
             st.table(pd.DataFrame({"Traf": ["6/6","5/6","4/6","3/6"], "Suma": [staty[6], staty[5], staty[4], staty[3]]}))
 else:
